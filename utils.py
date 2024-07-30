@@ -347,151 +347,6 @@ def calculate_experiment_similarity(selected_data, selected_sample):
     return sorted_similarities[:top_n]
     
 
-def calculate_experiment_similarity_old(selected_data, selected_sample):
-    df = fetch_data()  # Fetch the cached data or query MongoDB if necessary
-    df2 = fetch_data2()  # Fetch the cached data or query MongoDB if necessary
-
-    # Check if 'name' column exists in df2
-    if 'name' not in df2.columns:
-        print("Error: 'name' column not found in df2")
-        return []
-
-    # Precompute and cache information for all samples in df
-    sample_info_cache = {}
-
-    for index, row in df.iterrows():
-        sample_data = row.to_dict()  # Convert DataFrame row to dictionary
-        sample_name = sample_data.get("name")
-        
-        # Ensure 'metadata' is properly deserialized
-        metadata = sample_data.get('metadata')
-        if isinstance(metadata, str):
-            try:
-                metadata = json.loads(metadata)
-            except json.JSONDecodeError:
-                print(f"Error decoding metadata for sample {sample_name}")
-                continue  # Skip this sample
-
-        sample_info_cache[sample_name] = {
-            "temperature": metadata.get('heating_results', {}).get('heating_temperature', {}),
-            "time": metadata.get('heating_results', {}).get('heating_time', {}),
-            "target": metadata.get('target', "Unknown"),
-            "powder_names": [p['PowderName'] for p in metadata.get('powderdosing_results', {}).get('Powders', [])],
-            "phases": []
-        }
-
-        # Fetch matching samples from df2
-        if '_' in sample_name:
-            base_name, sample_number = sample_name.split('_', 1)
-        else:
-            base_name = sample_name
-            sample_number = None
-
-        matching_samples = df2[df2['name'].str.contains(base_name, na=False)]
-        if sample_number:
-            matching_samples = matching_samples[matching_samples['name'].str.contains(sample_number, na=False)]
-
-        data = {}
-        for _, doc in matching_samples.iterrows():
-            # Ensure 'metadata' is properly deserialized
-            doc_metadata = doc['metadata']
-            if isinstance(doc_metadata, str):
-                try:
-                    doc_metadata = json.loads(doc_metadata)
-                except json.JSONDecodeError:
-                    print(f"Error decoding metadata for document {doc['name']}")
-                    continue  # Skip this document
-            
-            name = doc['name']
-            fw_id = doc_metadata.get('fw_id')
-            if name not in data or fw_id > data[name]['fw_id']:
-                data[name] = {'doc': doc, 'fw_id': fw_id}
-
-        for doc_info in data.values():
-            doc = doc_info['doc']
-            output = doc.get('output')
-            # Check if output is a string and needs parsing
-            if isinstance(output, str):
-                try:
-                    output = json.loads(output)
-                except json.JSONDecodeError:
-                    print(f"Error decoding output for document {doc['name']}")
-                    continue  # Skip this document
-
-            final_result = output.get('final_result', {})
-            if isinstance(final_result, str):
-                try:
-                    final_result = json.loads(final_result)
-                except json.JSONDecodeError:
-                    print(f"Error decoding final_result for document {doc['name']}")
-                    continue  # Skip this document
-            
-            if final_result:
-                lst_data = final_result.get('lst_data', {})
-                if isinstance(lst_data, str):
-                    try:
-                        lst_data = json.loads(lst_data)
-                    except json.JSONDecodeError:
-                        print(f"Error decoding lst_data for document {doc['name']}")
-                        continue  # Skip this document
-                
-                phases_results = lst_data.get('phases_results', [])
-                if phases_results:
-                    sample_info_cache[sample_name]["phases"] = list(phases_results)
-
-    # Extract information from the selected data
-    metadata = selected_data.get('metadata', {})
-    if isinstance(metadata, str):
-        try:
-            metadata = json.loads(metadata)
-        except json.JSONDecodeError:
-            print(f"Error decoding metadata for selected sample {selected_sample}")
-            return []  # Return an empty list
-
-    selected_temperature = metadata.get('heating_results', {}).get('heating_temperature', {})
-    selected_time = metadata.get('heating_results', {}).get('heating_time', {})
-    selected_target = metadata.get('target', "Unknown")
-    selected_powder_names = [p['PowderName'] for p in metadata.get('powderdosing_results', {}).get('Powders', [])]
-    
-    # Fetch phases for the selected sample
-    selected_phases = []
-    if selected_sample in sample_info_cache:
-        selected_phases = sample_info_cache[selected_sample]["phases"]
-    print("in similarity :", selected_phases)
-
-    all_similarities = {}  # Dictionary to store sample name and similarity score pairs
-
-    # Iterate through the precomputed sample information
-    for sample_name, info in sample_info_cache.items():
-        if sample_name == selected_sample:
-            continue  # Exclude the selected sample from similarity calculation
-
-        # Ensure the times are numeric
-        selected_time_value = selected_time if isinstance(selected_time, (int, float)) else 0
-        sample_time_value = info["time"] if isinstance(info["time"], (int, float)) else 0
-
-        similarity_score = calculate_individual_similarity(
-            selected_temperature, selected_time_value, selected_target, selected_powder_names, selected_phases,
-            info["temperature"], sample_time_value, info["target"], info["powder_names"], info["phases"]
-        )
-
-        # Add sample name and similarity score to the dictionary
-        all_similarities[sample_name] = similarity_score
-
-    # Assuming all_similarities is a dictionary with sample names as keys and similarity scores as values
-    top_n = 3  # Number of most similar samples to display
-
-    # Sort samples by similarity score in descending order (most similar first)
-    sorted_similarities = sorted(all_similarities.items(), key=lambda x: x[1], reverse=True)
-
-    print(f"Top {top_n} Most Similar Samples:")
-    for i in range(min(top_n, len(sorted_similarities))):
-        sample, score = sorted_similarities[i]
-        print(f"\t- {sample}: {score:.2f}")  # Format score with 2 decimal places
-
-    return sorted_similarities[:top_n]
-
-
 def darken_color(color, factor=0.9):
     if 'rgba' in color:
         color = color.replace('rgba', '').replace('(', '').replace(')', '').split(',')
@@ -552,19 +407,40 @@ def get_powder_data(metadata):
     
     return powder_names, target_masses
 
+## This is a correlation plot for the same powders
+# def get_sample_correlations(df, selected_samples):
+#     correlations = []
+#     for selected_sample in selected_samples:
+#         selected_sample_data = df[df['name'] == selected_sample].iloc[0]
+#         selected_elements = set(selected_sample_data['metadata'].get('elements_present', []))
+
+#         for _, row in df.iterrows():
+#             sample_elements = set(row['metadata'].get('elements_present', []))
+#             if selected_elements == sample_elements:
+#                 correlations.append((row['name'], row['metadata'].get('target', 'Unknown')))
+    
+#     return correlations
+
+# this is a correlation plot for the similar experiments
 def get_sample_correlations(df, selected_samples):
     correlations = []
     for selected_sample in selected_samples:
         selected_sample_data = df[df['name'] == selected_sample].iloc[0]
-        selected_elements = set(selected_sample_data['metadata'].get('elements_present', []))
+        # selected_elements = set(selected_sample_data['metadata'].get('elements_present', []))
 
-        for _, row in df.iterrows():
-            sample_elements = set(row['metadata'].get('elements_present', []))
-            if selected_elements == sample_elements:
-                correlations.append((row['name'], row['metadata'].get('target', 'Unknown')))
+        # Get the 3 most similar experiments using calculate_experiment_similarity
+        similar_experiments = calculate_experiment_similarity(selected_sample_data, selected_sample)
+        
+        # Directly use the similar experiments for correlation
+        for experiment, _ in similar_experiments:
+            similar_experiment_data = df[df['name'] == experiment].iloc[0]
+            print("IN CORRELATIONS", similar_experiment_data)
+            # similar_elements = set(similar_experiment_data['metadata'].get('elements_present', []))
+
+            # if selected_elements == similar_elements:
+            correlations.append((experiment, similar_experiment_data['metadata'].get('target', 'Unknown')))
     
     return correlations
-
 
 # Function to create color mapping
 def create_color_mapping(targets):
