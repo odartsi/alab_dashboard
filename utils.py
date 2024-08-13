@@ -7,6 +7,8 @@ import colorsys
 import numpy as np
 import plotly.graph_objs as go
 import json
+from pymatgen.core import Composition
+from collections import defaultdict
 
 periodic_table_layout = {
     'H': (1, 7), 'He': (18, 7),
@@ -61,6 +63,39 @@ category_colors = {
     'lanthanide': 'rgba(176, 224, 230, 0.5)',  # light cyan
     'actinide': 'rgba(240, 230, 140, 0.5)',  # light khaki
 }
+
+def grams_to_moles(compound_names: str, masses_in_grams: float) -> float:
+    # Create a Composition object from the compound name
+    moles_list=[]
+    for compound_name, mass_in_grams in zip(compound_names, masses_in_grams):
+        composition = Composition(compound_name)
+        
+        # Calculate the molar mass
+        molar_mass = composition.weight
+        
+        # Calculate the number of moles
+        moles_list.append(mass_in_grams / molar_mass)
+    
+    return moles_list
+
+def element_composition_in_moles(compound_names: list, masses_in_grams: list) -> dict:
+    element_moles = defaultdict(float)
+    
+    for compound_name, mass_in_grams in zip(compound_names, masses_in_grams):
+        # Create a Composition object from the compound name
+        composition = Composition(compound_name)
+        
+        # Calculate the molar mass of the compound
+        molar_mass = composition.weight
+        
+        # Calculate the moles of the compound
+        moles = mass_in_grams / molar_mass
+        
+        # Sum the moles of each element in the compound
+        for element, amount in composition.items():
+            element_moles[element.symbol] += amount * moles
+            
+    return dict(element_moles)
 
 def get_samples_with_same_precursors(selected_precursors,selected_sample):
     df = fetch_data()  # Fetch the cached data or query MongoDB if necessary

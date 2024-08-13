@@ -1,12 +1,14 @@
 import json
 from dash.dependencies import Input, Output, State, ALL
 from data import fetch_data, fetch_data2
-from utils import create_clickable_list, calculate_experiment_similarity, get_samples_with_same_precursors, get_samples_with_same_target, get_samples_with_same_powder, periodic_table_layout, element_categories
-import plotly.graph_objects as go
+from utils import create_clickable_list, calculate_experiment_similarity, element_composition_in_moles, get_samples_with_same_precursors, get_samples_with_same_target, get_samples_with_same_powder, periodic_table_layout, element_categories
+import plotly.graph_objs as go
+from plotly.subplots import make_subplots
 from dash import dcc, html, Input, Output
-from utils import convert_time_and_sync_temperature, get_number, get_phase_weights, get_powder_data, get_sample_correlations, create_color_mapping, create_correlation_plot
+from utils import convert_time_and_sync_temperature, get_number, get_phase_weights, get_powder_data, get_sample_correlations, create_color_mapping, create_correlation_plot, grams_to_moles
 import numpy as np
 import dash
+import plotly.io as pio
 
 
 def register_callbacks(app):
@@ -413,6 +415,31 @@ def register_callbacks(app):
         Output('pie-plot', 'figure'),
         [Input('sample-name-dropdown', 'value')]
     )
+    # def update_pie_plot(selected_samples):
+    #     if df.empty or not selected_samples:
+    #         return go.Figure()
+
+    #     selected_sample = selected_samples[0]  
+    #     data = df[df['name'] == selected_sample].iloc[0]
+    #     metadata = data.get('metadata', {})
+    #     powder_names, target_masses = get_powder_data(metadata)
+    #     masses_in_moles = grams_to_moles(powder_names, target_masses)
+        
+    #     # Define custom colors
+    #     custom_colors = ['#daf8e3', '#97ebdb', '#00c2c7', '#0086ad', '#005582', '#008870', '#c1da87']
+
+    #     fig = go.Figure(data=[go.Pie(labels=powder_names, values=masses_in_moles, 
+    #                                 hoverinfo='label+value+percent', 
+    #                                 textinfo='value', 
+    #                                 texttemplate='%{value:.5f} mol',
+    #                                 marker=dict(colors=custom_colors))])
+
+    #     fig.update_layout(
+    #         title=f'Powder Composition for {selected_sample}',
+    #     )
+
+    #     return fig
+
     def update_pie_plot(selected_samples):
         if df.empty or not selected_samples:
             return go.Figure()
@@ -421,22 +448,57 @@ def register_callbacks(app):
         data = df[df['name'] == selected_sample].iloc[0]
         metadata = data.get('metadata', {})
         powder_names, target_masses = get_powder_data(metadata)
+        masses_in_moles = grams_to_moles(powder_names, target_masses)
+        elemental_composition = element_composition_in_moles(powder_names, target_masses)
         
         # Define custom colors
         custom_colors = ['#daf8e3', '#97ebdb', '#00c2c7', '#0086ad', '#005582', '#008870', '#c1da87']
+        custom_colors_2 = [	'#cae7b9', '#eb9486' ,'#f3de8a' ,'#7e7f9a', '#d387ab']
 
-        fig = go.Figure(data=[go.Pie(labels=powder_names, values=target_masses, 
-                                    hoverinfo='label+value+percent', 
-                                    textinfo='value', 
-                                    texttemplate='%{value:.2f}g',
-                                    marker=dict(colors=custom_colors))])
+        # Create a subplot with two columns
+        fig = make_subplots(rows=1, cols=2, specs=[[{'type':'domain'}, {'type':'domain'}]])
 
+        # Add the first pie chart (Powder Composition)
+        fig.add_trace(go.Pie(labels=powder_names, values=masses_in_moles, 
+                            hoverinfo='label+value+percent', 
+                            textinfo='value', 
+                            texttemplate='%{value:.5f} mol',
+                            marker=dict(colors=custom_colors)),
+                    row=1, col=1)
+
+        # Add the second pie chart (Elemental Composition)
+        print("hoho",masses_in_moles, elemental_composition )
+        print("hahhahahha ",list(elemental_composition.keys()),list(elemental_composition.values()))
+        elements = list(elemental_composition.keys())
+        elements_in_moles = list(elemental_composition.values())
+
+        fig.add_trace(go.Pie(labels=elements, 
+                            values=elements_in_moles, 
+                            hoverinfo='label+value+percent', 
+                            textinfo='value', 
+                            texttemplate='%{value:.5f} mol',
+                            marker=dict(colors=custom_colors_2)),
+                    row=1, col=2)
+
+        # Update layout with titles for each subplot
+       
         fig.update_layout(
-            title=f'Powder Composition for {selected_sample}',
+            annotations=[
+                dict(text='Powder Composition', x=0.20, y=1.1, font_size=15, showarrow=False, xanchor='center'),
+                dict(text='Elemental Composition', x=0.80, y=1.1, font_size=15, showarrow=False, xanchor='center')
+            ],
+            showlegend=True,
+            # legend=dict(
+            #     x=0.02,  # Position legend closer to the first pie
+            #     y=0.5,
+            #     traceorder='normal',
+            #     font=dict(size=12),
+            #     xanchor="left"
+            # )
         )
 
+        # Return the figure directly
         return fig
-    
     @app.callback(
     [Output('image1', 'src'), Output('image2', 'src')],
     [Input('sample-name-dropdown', 'value')]
