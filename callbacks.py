@@ -37,10 +37,28 @@ def register_callbacks(app):
         # Get target for this sample
         target = data['metadata'].get('target', 'Unknown')
         similar_targets = get_samples_with_same_target(sample_target, selected_sample)
-        sample_targets_list = f" {', '.join(similar_targets)}"
+        print("similar targets : " , similar_targets)
+        # sample_targets_list = f" {', '.join(similar_targets)}"
+        flattened_targets = set()  # Use a set to keep only unique targets
+        for item in similar_targets:
+            targets = item.split(',')
+            for target in targets:
+                flattened_targets.add(target.strip())
+
+        # Convert the set back to a sorted list for display
+        sample_targets_list = sorted(flattened_targets)
 
         similar_powder = get_samples_with_same_powder(sample_powder_names)
-        sample_powder_list = f" {', '.join(similar_powder)}"
+        # sample_powder_list = f" {', '.join(similar_powder)}"
+        # sample_powder_list = [target.strip() for target in similar_powder]
+        flattened_powders = set()  # Use a set to keep only unique targets
+        for item in similar_powder:
+            targets = item.split(',')
+            for target in targets:
+                flattened_powders.add(target.strip())
+
+        # Convert the set back to a sorted list for display
+        sample_powder_list = sorted(flattened_powders)
 
         similarity = calculate_experiment_similarity(data, selected_sample)
         similarity_text = [
@@ -58,14 +76,56 @@ def register_callbacks(app):
         ], style={'background-color': '#e5f5f1', 'padding': '10px'})
 
         # Create the similar experiments box content
+        # similar_experiments_box_content = html.Div([
+        #     html.H4(f'{len(similarity)} Similar Experiments:'),
+        #     html.Div([html.Div(link) for link in similarity_text]),
+        #     html.H4(f'{len(similar_targets)} Experiments with same target:'),
+        #     # html.Div(sample_targets_list),
+        #     html.Div([
+        #     html.Span([
+        #         dcc.Link(target, href=f"/select/{target}", style={'margin-right': '5px'}),
+        #         html.Span(", ") if i < len(sample_targets_list) - 1 else None  # Add comma except after the last item
+        #     ]) for i, target in enumerate(sample_targets_list)
+        #     ]),
+        #     html.H4(f'{len(similar_powder)} Experiments with same powders:'),
+        #     # html.Div(sample_powder_list)
+        #     html.Div([
+        #     html.Span([
+        #         dcc.Link(target, href=f"/select/{target}", style={'margin-right': '5px'}),
+        #         html.Span(", ") if i < len(sample_powder_list) - 1 else None  # Add comma except after the last item
+        #     ]) for i, target in enumerate(sample_powder_list)
+        # ])
+        # ], style={'background-color': '#C8EDDC', 'padding': '10px'})
+        # Create the similar experiments box content
         similar_experiments_box_content = html.Div([
             html.H4(f'{len(similarity)} Similar Experiments:'),
             html.Div([html.Div(link) for link in similarity_text]),
+            
             html.H4(f'{len(similar_targets)} Experiments with same target:'),
-            html.Div(sample_targets_list),
+            html.Div([
+                html.Span([
+                    dcc.Link(target, href=f"/select/{target}", style={'margin-right': '5px', 'display': 'inline'}),
+                    html.Span(", ") if i < len(sample_targets_list) - 1 else None  # Add comma except after the last item
+                ]) for i, target in enumerate(sample_targets_list)
+            ], style={'whiteSpace': 'normal', 'overflow': 'hidden', 'textOverflow': 'ellipsis'}),
+            
             html.H4(f'{len(similar_powder)} Experiments with same powders:'),
-            html.Div(sample_powder_list)
-        ], style={'background-color': '#C8EDDC', 'padding': '10px'})
+            html.Div([
+                html.Span([
+                    dcc.Link(target, href=f"/select/{target}", style={'margin-right': '5px', 'display': 'inline'}),
+                    html.Span(", ") if i < len(sample_powder_list) - 1 else None  # Add comma except after the last item
+                ]) for i, target in enumerate(sample_powder_list)
+            ], style={'whiteSpace': 'normal', 'overflow': 'hidden', 'textOverflow': 'ellipsis'})
+            
+        ], style={
+            'background-color': '#C8EDDC',
+            'padding': '10px',
+            'maxHeight': '300px',  # Limit height of the box
+            'overflowY': 'auto',   # Add vertical scroll if content exceeds height
+            'border': '1px solid #ccc',
+            'borderRadius': '5px'
+        })
+
 
         return target_box_content, similar_experiments_box_content
     
@@ -131,14 +191,59 @@ def register_callbacks(app):
             showlegend=False,
             hoverinfo="skip"
         ))
+        # Add legend entries using scatter traces with markers
+        fig.add_trace(go.Scatter(
+            x=[None], y=[None],
+            mode='markers',
+            marker=dict(size=15, color='rgba(240, 128, 128, 0.5)'),
+            legendgroup='not_in_use',
+            showlegend=True,
+            name='Not in use'
+        ))
 
+        fig.add_trace(go.Scatter(
+            x=[None], y=[None],
+            mode='markers',
+            marker=dict(size=15, color='rgba(135, 206, 250, 0.5)'),
+            legendgroup='in_sample',
+            showlegend=True,
+            name='Used in sample'
+        ))
+
+        fig.add_trace(go.Scatter(
+            x=[None], y=[None],
+            mode='markers',
+            marker=dict(size=15, color='rgba(144, 238, 144, 0.5)'),
+            legendgroup='in_db',
+            showlegend=True,
+            name='Used in Alab'
+        ))
+
+        # Update layout with titles for the plot and legend
         fig.update_layout(
             title='Available Precursors in Selected Sample',
             xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
             yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
             plot_bgcolor='white',
-            paper_bgcolor='white'
+            paper_bgcolor='white',
+            legend=dict(
+                title="",
+                orientation="h",
+                yanchor="top",
+                y=1.15,
+                xanchor="center",
+                x=0.5
+            )
         )
+
+
+        # fig.update_layout(
+        #     title='Available Precursors in Selected Sample',
+        #     xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        #     yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        #     plot_bgcolor='white',
+        #     paper_bgcolor='white'
+        # )
 
         return fig
     
@@ -244,9 +349,9 @@ def register_callbacks(app):
         return fig
 
     @app.callback(
-    [Output('xrd-plot', 'figure'),
-     Output('best_rwp_box', 'children'),
-     Output('results_box', 'children')],
+    [Output('xrd-plot', 'figure')],
+    #  Output('best_rwp_box', 'children'),
+    #  Output('results_box', 'children')],
     [Input('sample-name-dropdown', 'value')]    
     )
 
@@ -279,11 +384,11 @@ def register_callbacks(app):
             fw_id = doc.get('fw_id') or doc.get('uuid') 
             if name not in data or fw_id > data[name]['fw_id']:
                 data[name] = {'doc': doc, 'fw_id': fw_id}
-
+        data2 = df[df['name'] == selected_sample].iloc[0]
+        total_mass_dispensed = data2.get('metadata', {}).get('diffraction_results', []).get('total_mass_dispensed_mg')
         for doc_info in data.values():
             doc = doc_info['doc']
             output = doc.get('output') or doc.get('some_output_field')  # Replace with actual field
-
             # Check if output is a string and needs to be deserialized
             if isinstance(output, str):
                 try:
@@ -331,7 +436,20 @@ def register_callbacks(app):
 
                         diff = np.array(y_obs) - np.array(y_calc)
                         diff_offset_val = 0
-
+                        fig.add_trace(go.Scatter(
+                            x=[None], y=[None],  # Empty data points
+                            mode='lines',  # Use 'lines' mode with zero width for a text-like effect
+                            line=dict(color='white', width=0),  # Invisible line
+                            showlegend=True,
+                            name=f"rwp: {best_rwp}%"  # Legend entry text
+                        ))
+                        fig.add_trace(go.Scatter(
+                            x=[None], y=[None],  # Empty data points
+                            mode='lines',  # Use 'lines' mode with zero width for a text-like effect
+                            line=dict(color='white', width=0),  # Invisible line
+                            showlegend=True,
+                            name=f"Total Mass Dispensed: {total_mass_dispensed} mg"  # Legend entry text
+                        ))
                         fig.add_trace(go.Scatter(x=x, y=y_obs, mode='lines', name='Observed', showlegend=True))
                         fig.add_trace(go.Scatter(x=x, y=y_calc, mode='lines', name='Calculated', showlegend=True))
                         fig.add_trace(go.Scatter(x=x, y=y_bkg, mode='lines', name='Background', showlegend=True))
@@ -342,7 +460,8 @@ def register_callbacks(app):
                             "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b",
                             "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
                         ]
-
+                        
+                        
                         for i, (phase_name, phase) in enumerate(structs.items()):
                             if i >= len(colormap):
                                 i = i % len(colormap)
@@ -372,34 +491,45 @@ def register_callbacks(app):
                                     legendgroup=phase_name,
                                 )
                             )
+                        
                         fig.update_layout(
                             #title='XRD Characterization',
                             xaxis_title='2θ [°]',
                             yaxis_title='Intensity',
                             height=500,
-                            width=1000,
+                            width=1300,
                             plot_bgcolor='white',
                             paper_bgcolor='white',
                             legend=dict(
-                                orientation="h",
-                                x=0,
-                                y=-0.2
+                                orientation="v",  # Set vertical orientation
+                                x=1.05,           # Move the legend to the right of the plot
+                                y=1,              # Align the legend to the top
+                                yanchor="top",
+                                xanchor="left"
                             )
+                            # legend=dict(
+                            #     orientation="h",
+                            #     x=0,
+                            #     y=-0.2
+                            # )
                         )
+        # data = df[df['name'] == selected_sample].iloc[0]
+        # total_mass_dispensed = data.get('metadata', {}).get('diffraction_results', []).get('total_mass_dispensed_mg')
+        # best_rwp_box = html.Div([
+        #     html.H4('Best rwp:', style={'text-align': 'right'}),
+        #     html.P(best_rwp, style={'text-align': 'right'}),
+        #     html.H4('Total mass dispensed:', style={'text-align': 'right'}),
+        #     html.P(total_mass_dispensed, style={'text-align': 'right'}),
+        # ], style={'background-color': '#D5A6BD', 'padding': '10px'})
 
-        best_rwp_box = html.Div([
-            html.H4('Best rwp:', style={'text-align': 'right'}),
-            html.P(best_rwp, style={'text-align': 'right'})
-        ], style={'background-color': '#D5A6BD', 'padding': '10px'})
+        # results_box = html.Div([
+        #     html.H4('Phases:', style={'text-align': 'right'}),
+        #     html.Ul([
+        #         html.Li(phase, style={'text-align': 'right'}) for phase in phases
+        #     ])
+        # ], style={'background-color': '#d6efd8', 'padding': '10px'})
 
-        results_box = html.Div([
-            html.H4('Phases:', style={'text-align': 'right'}),
-            html.Ul([
-                html.Li(phase, style={'text-align': 'right'}) for phase in phases
-            ])
-        ], style={'background-color': '#d6efd8', 'padding': '10px'})
-
-        return fig, best_rwp_box, results_box
+        return fig,# best_rwp_box, results_box
     
 
     @app.callback(
@@ -520,23 +650,14 @@ def register_callbacks(app):
         fig = make_subplots(rows=1, cols=2, specs=[[{'type':'domain'}, {'type':'domain'}]])
 
         # Add the first pie chart (Powder Composition)
-        # fig.add_trace(go.Pie(labels=powder_names, values=masses_in_moles, 
-        #                     customdata=masses_in_moles,
-        #                     hoverinfo='label+value+percent', 
-        #                     textinfo='none',
-        #                     texttemplate='%{label}: %{percent}',
-        #                     # textinfo='label+percent',#'value', 
-        #                     # texttemplate='%{label}: %{percent}',#'%{value:.5f} mol',
-        #                     hovertemplate='%{label}: %{customdata:.5f} mol',
-        #                     marker=dict(colors=custom_colors)),
-        #             row=1, col=1)
         fig.add_trace(go.Pie(labels=powder_names, values=masses_in_moles, 
                      customdata=masses_in_moles,  # Pass the values as customdata for use in hovertemplate
                      hoverinfo='label+value',            # Disable default hoverinfo
                      textinfo='label+percent',    # Display label and percent on the chart
                      texttemplate='%{label}: %{percent}',  # Display label and percent on the chart
                      hovertemplate='%{label}: %{customdata:.5f} mol',  # Customize the hover text
-                     marker=dict(colors=custom_colors)),
+                     marker=dict(colors=custom_colors),
+                     name=""),
               row=1, col=1)
 
         # Add the second pie chart (Elemental Composition with Ratios)
@@ -549,7 +670,8 @@ def register_callbacks(app):
                             textinfo='label+text',        # Display label and text (value) on the chart
                             texttemplate='%{label}: %{value} parts',  # Customize the text on the chart
                             hovertemplate='%{label}: %{percent}',     # Customize the hover text
-                            marker=dict(colors=custom_colors_2)),
+                            marker=dict(colors=custom_colors_2),
+                            name=""),
                     row=1, col=2)
 
         # Update layout with titles for each subplot

@@ -1,9 +1,15 @@
 from dash import html, dcc
 from data import fetch_data
+import re
+
+# Define the sorting key function outside create_layout (or inside if preferred)
+def natural_sort_key(name):
+    return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', name)]
+
 
 def create_layout():
     df = fetch_data()
-    
+    sorted_names = sorted(df['name'].unique(), key=natural_sort_key)
     layout = html.Div([
         dcc.Location(id='url', refresh=False),
 
@@ -13,7 +19,7 @@ def create_layout():
 
         dcc.Dropdown(
             id='sample-name-dropdown',
-            options=[{'label': name, 'value': name} for name in df['name'].unique()],
+            options=[{'label': name, 'value': name} for name in sorted_names],
             multi=True
         ),
         

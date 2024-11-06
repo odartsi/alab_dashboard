@@ -1,7 +1,6 @@
 from dash import html
 import math
 from data import fetch_data, fetch_data2
-import plotly
 import matplotlib.colors as mc
 import colorsys
 import numpy as np
@@ -78,7 +77,7 @@ def grams_to_moles(compound_names: str, masses_in_grams: float) -> float:
     
     return moles_list
 
-def element_composition_in_moles(compound_names: list, masses_in_grams: list) -> dict:
+def element_composition_in_moles_full(compound_names: list, masses_in_grams: list) -> dict:
     element_moles = defaultdict(float)
     
     for compound_name, mass_in_grams in zip(compound_names, masses_in_grams):
@@ -95,6 +94,26 @@ def element_composition_in_moles(compound_names: list, masses_in_grams: list) ->
         for element, amount in composition.items():
             element_moles[element.symbol] += amount * moles
             
+    return dict(element_moles)
+
+def calculate_ratios(element_moles: dict) -> dict:
+    min_moles = min(element_moles.values())
+    ratios = {element: round(moles / min_moles) for element, moles in element_moles.items()}
+    return ratios
+
+def element_composition_in_moles(compound_names: list, masses_in_grams: list) -> dict:
+    excluded_elements = {'C', 'O', 'H', 'N'}
+    element_moles = defaultdict(float)
+    
+    for compound_name, mass_in_grams in zip(compound_names, masses_in_grams):
+        composition = Composition(compound_name)
+        molar_mass = composition.weight
+        moles = mass_in_grams / molar_mass
+        
+        for element, amount in composition.items():
+            if element.symbol not in excluded_elements:
+                element_moles[element.symbol] += amount * moles
+    
     return dict(element_moles)
 
 def get_samples_with_same_precursors(selected_precursors,selected_sample):
@@ -192,16 +211,16 @@ def calculate_individual_similarity(selected_temperature, selected_time, selecte
     target_similarity = 1 if selected_target == sample_target else 0
     powder_similarity = 1 if set(selected_powder_names) == set(sample_powder_names) else 0
     phase_similarity = 1 if set(selected_phases) == set(sample_phases) else 0
-
-    # print(f'phase_similarity =  {phase_similarity}', selected_phases,sample_phases)
-
+    
+    
     overall_similarity = (weight_temperature * temperature_similarity +
                           weight_time * time_similarity +
                           weight_target * target_similarity +
                           weight_powders * powder_similarity +
                           weight_powders * phase_similarity)
 
-    similarity_score = overall_similarity / (weight_powders + weight_powders + weight_target + weight_time + weight_temperature)
+    similarity_score = overall_similarity / 5
+    #(weight_powders + weight_powders + weight_target + weight_time + weight_temperature)
     return similarity_score
 
 
@@ -340,7 +359,7 @@ def calculate_experiment_similarity(selected_data, selected_sample):
         weight_temperature = 0.2
         weight_time = 0.2
         weight_target = 0.1
-        weight_powders = 0.1
+        weight_powders = 0.2
         weight_phases = 0.4
 
         try:
@@ -352,16 +371,13 @@ def calculate_experiment_similarity(selected_data, selected_sample):
         time_similarity = (1 - abs(selected_time_value - sample_time_value) / (selected_time_value + sample_time_value + 1))
         target_similarity = 1 if selected_target == info['target'] else 0
         powder_similarity = 1 if set(selected_powder_names) == set(info["powder_names"]) else 0
-        
 
-        # print(f'phase_similarity =  {phase_similarity}', selected_phases,sample_phases)
 
-        overall_similarity = (weight_temperature * temperature_similarity +
-                            weight_time * time_similarity +
-                            weight_target * target_similarity +
-                            weight_powders * powder_similarity +
-                            weight_phases * phase_similarity)
-
+        overall_similarity = min(1, (weight_temperature * temperature_similarity +
+                             weight_time * time_similarity +
+                             weight_target * target_similarity +
+                             weight_powders * powder_similarity +
+                             weight_phases * phase_similarity))
         similarity_score = overall_similarity / (weight_powders + weight_powders + weight_target + weight_time + weight_temperature)
         
 
@@ -374,10 +390,10 @@ def calculate_experiment_similarity(selected_data, selected_sample):
     # Sort samples by similarity score in descending order (most similar first)
     sorted_similarities = sorted(all_similarities.items(), key=lambda x: x[1], reverse=True)
 
-    print(f"Top {top_n} Most Similar Samples:")
+    # print(f"Top {top_n} Most Similar Samples:")
     for i in range(min(top_n, len(sorted_similarities))):
         sample, score = sorted_similarities[i]
-        print(f"\t- {sample}: {score:.2f}")  # Format score with 2 decimal places
+        # print(f"\t- {sample}: {score:.2f}")  # Format score with 2 decimal places
 
     return sorted_similarities[:top_n]
     
@@ -469,7 +485,6 @@ def get_sample_correlations(df, selected_samples):
         # Directly use the similar experiments for correlation
         for experiment, _ in similar_experiments:
             similar_experiment_data = df[df['name'] == experiment].iloc[0]
-            print("IN CORRELATIONS", similar_experiment_data)
             # similar_elements = set(similar_experiment_data['metadata'].get('elements_present', []))
 
             # if selected_elements == similar_elements:
