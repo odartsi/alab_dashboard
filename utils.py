@@ -535,3 +535,105 @@ def create_correlation_plot(selected_samples):
         # paper_bgcolor='rgb(255, 255, 255)'
     )
     return fig
+
+def calculate_experiment_individual_similarity(selected_sample, comparable_sample):
+    # Ensure selected_sample and comparable_sample are strings, not lists
+    if isinstance(selected_sample, list):
+        selected_sample = selected_sample[0]
+    if isinstance(comparable_sample, list):
+        comparable_sample = comparable_sample[0]
+    df = fetch_data()  # Fetch the main data
+    df2 = fetch_data2()  # Fetch the data with phase information
+
+    # Retrieve data for the selected sample
+    selected_data = df[df['name'] == selected_sample].iloc[0]
+    selected_metadata = selected_data['metadata']
+    if isinstance(selected_metadata, str):  # Deserialize if necessary
+        selected_metadata = json.loads(selected_metadata)
+
+    selected_temperature = selected_metadata.get('heating_results', {}).get('heating_temperature', {})
+    selected_time = selected_metadata.get('heating_results', {}).get('heating_time', {})
+    selected_target = selected_metadata.get('target', "Unknown")
+    selected_powder_names = [p['PowderName'] for p in selected_metadata.get('powderdosing_results', {}).get('Powders', [])]
+
+    # Retrieve phases for the selected sample from df2
+    selected_phases = set()
+    selected_rows = df2[df2['name'] == selected_sample]
+    if not selected_rows.empty:
+        selected_phases = set(selected_rows.iloc[0]['metadata'].get('phases', []))
+
+    # Retrieve data for the comparable sample
+    comparable_data = df[df['name'] == comparable_sample].iloc[0]
+    comparable_metadata = comparable_data['metadata']
+    if isinstance(comparable_metadata, str):  # Deserialize if necessary
+        comparable_metadata = json.loads(comparable_metadata)
+
+    comparable_temperature = comparable_metadata.get('heating_results', {}).get('heating_temperature', {})
+    comparable_time = comparable_metadata.get('heating_results', {}).get('heating_time', {})
+    comparable_target = comparable_metadata.get('target', "Unknown")
+    comparable_powder_names = [p['PowderName'] for p in comparable_metadata.get('powderdosing_results', {}).get('Powders', [])]
+
+    # Retrieve phases for the comparable sample from df2
+    comparable_phases = set()
+    comparable_rows = df2[df2['name'] == comparable_sample]
+    if not comparable_rows.empty:
+        comparable_phases = set(comparable_rows.iloc[0]['metadata'].get('phases', []))
+
+    # Calculate temperature similarity
+    try:
+        temperature_distance = math.sqrt(sum((selected_temperature[t] - comparable_temperature.get(t, 0))**2 for t in selected_temperature))
+        temperature_similarity = 1 - (temperature_distance / max(max(selected_temperature.values()), max(comparable_temperature.values())))
+    except:
+        temperature_similarity = 0
+
+    # Calculate time similarity
+    selected_time_value = selected_time if isinstance(selected_time, (int, float)) else 0
+    comparable_time_value = comparable_time if isinstance(comparable_time, (int, float)) else 0
+    time_similarity = 1 - abs(selected_time_value - comparable_time_value) / (selected_time_value + comparable_time_value + 1)
+
+    # Calculate target similarity
+    target_similarity = 1 if selected_target == comparable_target else 0
+
+    # Calculate powder similarity
+    powder_similarity = 1 if set(selected_powder_names) == set(comparable_powder_names) else 0
+
+    # Calculate phase similarity (Jaccard similarity using phases from df2)
+    phase_similarity = len(selected_phases & comparable_phases) / len(selected_phases | comparable_phases) if selected_phases | comparable_phases else 0
+
+    # Return individual similarity scores as a dictionary
+    return {
+        "temperature": temperature_similarity,
+        "time": time_similarity,
+        "target": target_similarity,
+        "powder_names": powder_similarity,
+        "phases": phase_similarity
+    }
+
+def create_correlation_plot_with_metric(selected_sample, comparable_sample):
+    selected_sample_str = str(selected_sample).replace("[", "").replace("]", "").replace("'", "")
+    comparable_sample_str = str(comparable_sample).replace("[", "").replace("]", "").replace("'", "")
+    
+    # Calculate individual similarity scores for each parameter
+    similarity_scores = calculate_experiment_individual_similarity(selected_sample, comparable_sample)
+
+    # Prepare heatmap data
+    parameters = list(similarity_scores.keys())
+    scores = list(similarity_scores.values())
+
+    # Create the heatmap
+    fig = go.Figure(data=go.Heatmap(
+        z=[scores],
+        x=parameters,
+        y=[f"{selected_sample_str} vs {comparable_sample_str}"],
+        colorscale='Viridis_r',
+        colorbar=dict(title="Similarity Score", titleside="right")
+    ))
+
+    # Update layout for readability
+    fig.update_layout(
+        title=f'Parameter Correlation: {selected_sample_str} vs. {comparable_sample_str}',
+        xaxis=dict(title='Parameters'),
+        yaxis=dict(title='Comparison', tickangle=-90)
+    )
+
+    return fig

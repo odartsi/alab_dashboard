@@ -5,7 +5,7 @@ from utils import calculate_ratios, calculate_experiment_similarity, element_com
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 from dash import dcc, html
-from utils import convert_time_and_sync_temperature, get_phase_weights, get_powder_data, create_correlation_plot, grams_to_moles
+from utils import convert_time_and_sync_temperature, get_phase_weights, get_powder_data, create_correlation_plot, grams_to_moles, create_correlation_plot_with_metric
 import numpy as np
 import dash
 
@@ -35,8 +35,9 @@ def register_callbacks(app):
         sample_powder_names = [p['PowderName'] for p in selected_precursors_powders]
 
         # Get target for this sample
-        target = data['metadata'].get('target', 'Unknown')
+        target_of_sample = data['metadata'].get('target', 'Unknown')
         similar_targets = get_samples_with_same_target(sample_target, selected_sample)
+        print("The target isssssssssss: ", target_of_sample)
         print("similar targets : " , similar_targets)
         # sample_targets_list = f" {', '.join(similar_targets)}"
         flattened_targets = set()  # Use a set to keep only unique targets
@@ -68,34 +69,14 @@ def register_callbacks(app):
             ])
             for experiment, score in similarity
         ]
-
+        print("The target isssssssssss: ", target_of_sample)
         # Create the target box content
         target_box_content = html.Div([
             html.H4('Target:'),
-            html.P(target)
+            html.P(target_of_sample)
         ], style={'background-color': '#e5f5f1', 'padding': '10px'})
 
-        # Create the similar experiments box content
-        # similar_experiments_box_content = html.Div([
-        #     html.H4(f'{len(similarity)} Similar Experiments:'),
-        #     html.Div([html.Div(link) for link in similarity_text]),
-        #     html.H4(f'{len(similar_targets)} Experiments with same target:'),
-        #     # html.Div(sample_targets_list),
-        #     html.Div([
-        #     html.Span([
-        #         dcc.Link(target, href=f"/select/{target}", style={'margin-right': '5px'}),
-        #         html.Span(", ") if i < len(sample_targets_list) - 1 else None  # Add comma except after the last item
-        #     ]) for i, target in enumerate(sample_targets_list)
-        #     ]),
-        #     html.H4(f'{len(similar_powder)} Experiments with same powders:'),
-        #     # html.Div(sample_powder_list)
-        #     html.Div([
-        #     html.Span([
-        #         dcc.Link(target, href=f"/select/{target}", style={'margin-right': '5px'}),
-        #         html.Span(", ") if i < len(sample_powder_list) - 1 else None  # Add comma except after the last item
-        #     ]) for i, target in enumerate(sample_powder_list)
-        # ])
-        # ], style={'background-color': '#C8EDDC', 'padding': '10px'})
+   
         # Create the similar experiments box content
         similar_experiments_box_content = html.Div([
             html.H4(f'{len(similarity)} Similar Experiments:'),
@@ -436,20 +417,7 @@ def register_callbacks(app):
 
                         diff = np.array(y_obs) - np.array(y_calc)
                         diff_offset_val = 0
-                        fig.add_trace(go.Scatter(
-                            x=[None], y=[None],  # Empty data points
-                            mode='lines',  # Use 'lines' mode with zero width for a text-like effect
-                            line=dict(color='white', width=0),  # Invisible line
-                            showlegend=True,
-                            name=f"rwp: {best_rwp}%"  # Legend entry text
-                        ))
-                        fig.add_trace(go.Scatter(
-                            x=[None], y=[None],  # Empty data points
-                            mode='lines',  # Use 'lines' mode with zero width for a text-like effect
-                            line=dict(color='white', width=0),  # Invisible line
-                            showlegend=True,
-                            name=f"Total Mass Dispensed: {total_mass_dispensed} mg"  # Legend entry text
-                        ))
+                    
                         fig.add_trace(go.Scatter(x=x, y=y_obs, mode='lines', name='Observed', showlegend=True))
                         fig.add_trace(go.Scatter(x=x, y=y_calc, mode='lines', name='Calculated', showlegend=True))
                         fig.add_trace(go.Scatter(x=x, y=y_bkg, mode='lines', name='Background', showlegend=True))
@@ -492,26 +460,52 @@ def register_callbacks(app):
                                 )
                             )
                         
+                        # fig.update_layout(
+                        #     #title='XRD Characterization',
+                        #     xaxis_title='2θ [°]',
+                        #     yaxis_title='Intensity',
+                        #     height=500,
+                        #     width=1300,
+                        #     plot_bgcolor='white',
+                        #     paper_bgcolor='white',
+                        #     legend=dict(
+                        #         orientation="v",  # Set vertical orientation
+                        #         x=1.05,           # Move the legend to the right of the plot
+                        #         y=1,              # Align the legend to the top
+                        #         yanchor="top",
+                        #         xanchor="left"
+                        #     )
+                           
+                        # )
                         fig.update_layout(
-                            #title='XRD Characterization',
+                            autosize=True,  # Enable auto-sizing based on container size
                             xaxis_title='2θ [°]',
                             yaxis_title='Intensity',
-                            height=500,
-                            width=1300,
                             plot_bgcolor='white',
                             paper_bgcolor='white',
+                            margin=dict(l=5, r=5, t=5, b=5),  # Set minimal margins to use all space
+                            height=500,
+                            width=1800,
                             legend=dict(
-                                orientation="v",  # Set vertical orientation
-                                x=1.05,           # Move the legend to the right of the plot
-                                y=1,              # Align the legend to the top
+                                orientation="v",
+                                x=1.05,
+                                y=1,
                                 yanchor="top",
                                 xanchor="left"
                             )
-                            # legend=dict(
-                            #     orientation="h",
-                            #     x=0,
-                            #     y=-0.2
-                            # )
+                        )
+                        fig.update_layout(
+                            annotations=[
+                                dict(
+                                    x=0.5,  # Center the text horizontally
+                                    y=1.15,  # Position above the plot
+                                    xref="paper", 
+                                    yref="paper",
+                                    text=f"Best RWP: {best_rwp}% | Total Mass Dispensed: {total_mass_dispensed} mg",
+                                    showarrow=False,
+                                    font=dict(size=14, color="black")
+                                )
+                            ]
                         )
         # data = df[df['name'] == selected_sample].iloc[0]
         # total_mass_dispensed = data.get('metadata', {}).get('diffraction_results', []).get('total_mass_dispensed_mg')
@@ -531,15 +525,26 @@ def register_callbacks(app):
 
         return fig,# best_rwp_box, results_box
     
-
     @app.callback(
-        Output('correlation-plot', 'figure'),
-        [Input('sample-name-dropdown', 'value')]
+    Output('correlation-plot', 'figure'),
+    [Input('sample-name-dropdown', 'value'),
+     Input('comparable-sample-dropdown', 'value')]
     )
-    def update_correlation_plot(selected_samples):
-        if not selected_samples:
-            return go.Figure()  # Return an empty figure if no samples are selected
-        return create_correlation_plot(selected_samples)
+    def update_correlation_plot(selected_sample, comparable_sample):
+        # Check if both samples are selected
+        if not selected_sample or not comparable_sample:
+            return go.Figure()  # Return an empty figure if either sample is not selected
+        
+        # Generate the correlation plot with the two selected samples
+        return create_correlation_plot_with_metric(selected_sample, comparable_sample)
+    # @app.callback(
+    #     Output('correlation-plot', 'figure'),
+    #     [Input('sample-name-dropdown', 'value')]
+    # )
+    # def update_correlation_plot(selected_samples):
+    #     if not selected_samples:
+    #         return go.Figure()  # Return an empty figure if no samples are selected
+    #     return create_correlation_plot(selected_samples)
 
     @app.callback(
         Output('pie-plot', 'figure'),
@@ -701,3 +706,88 @@ def register_callbacks(app):
         image_path2 = "/assets/favicon_io/ImageAdjustment_0_324_540.png"  # Image path within the assets directory for image2
 
         return image_path1, image_path2
+    import re
+
+    def natural_sort_key(name):
+        return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', name)]
+
+    @app.callback(
+    Output('tab-content', 'children'),
+    Input('tabs', 'value'),
+    State('saved-plots', 'data')
+    )
+    def render_tab_content(tab, saved_plots):
+        df = fetch_data()
+        sorted_names = sorted(df['name'].unique(), key=natural_sort_key)
+        if tab == 'main-tab':
+            # Original dashboard content
+            return html.Div([
+                dcc.Dropdown(
+                    id='sample-name-dropdown',
+                    options=[{'label': name, 'value': name} for name in sorted_names],
+                    multi=True
+                ),
+                html.Div([
+                    html.Div(id='target-box', style={'padding': '10px', 'margin': '10px', 'display': 'inline-block', 'width': '15%'}),
+                    html.Div(id='similar-experiments-box', style={'padding': '10px', 'margin': '10px', 'display': 'inline-block', 'width': '45%'}),
+                ], style={'display': 'flex', 'justify-content': 'space-between'}),
+                html.Div([
+                    dcc.Graph(id='precursors-plot', style={'padding': '10px', 'margin': '10px','width': '45%', 'display': 'inline-block' }),
+                    dcc.Graph(id='pie-plot', style={'padding': '10px', 'margin': '10px','width': '45%', 'display': 'inline-block'}),
+                ], style={'display': 'flex', 'flex-wrap': 'wrap','justify-content': 'space-between'}),
+                html.Button("Save pie plot", id="save-plot-btn"),
+                html.Div([
+                    dcc.Graph(id='temperature-plot', style={'padding': '10px', 'margin': '10px','width': '45%', 'display': 'inline-block'}),
+                    dcc.Dropdown(
+                        id='comparable-sample-dropdown',
+                        options=[{'label': name, 'value': name} for name in df['name'].unique()],
+                        placeholder="Select a comparable sample",
+                        style={'width': '5%', 'height': '5%', 'font-size': '14px'}
+                    ),
+                    dcc.Graph(id='correlation-plot', style={'padding': '10px', 'margin': '10px','width': '45%', 'display': 'inline-block'}),
+                ], style={'display': 'flex', 'flex-wrap': 'wrap','justify-content': 'space-between'}),
+                html.Button("Save correlation Plot", id="save-plot-btn"),
+                html.H2("XRD characterization", style={'text-align': 'left'}),
+                html.Div([
+                    html.Div([
+                        dcc.Graph(id='xrd-plot', style={'padding': '10px', 'margin': '10px', 'width': '100%'})
+                    ], style={'width': '40%', 'display': 'inline-block'}),
+                    html.Div([
+                        html.Div(id='best_rwp_box', style={'padding': '10px', 'margin': '10px'}),
+                        html.Div(id='results_box', style={'padding': '10px', 'margin': '10px'})
+                    ], style={'display': 'flex', 'flex-direction': 'column', 'height': '80%', 'width': '80%'})
+                ], style={'display': 'flex'}),
+                html.Button("Save XRD Plot", id="save-plot-btn"),
+                html.H2("SEM characterization", style={'text-align': 'left'}),
+                html.Div([
+                    html.Img(id='image1', style={'width': '35%', 'display': 'inline-block'}),
+                    html.Img(id='image2', style={'width': '35%', 'display': 'inline-block'}),
+                ], style={'display': 'flex', 'flex-wrap': 'wrap', 'justify-content': 'space-between'}),
+                
+            ])
+        elif tab == 'saved-plots-tab':
+            # Display saved plots
+            if not saved_plots:
+                return html.Div("No plots saved.")
+            
+            return html.Div([
+                dcc.Graph(figure=plot) for plot in saved_plots  # Display each saved plot
+            ])
+
+
+    @app.callback(
+    Output('saved-plots', 'data'),
+    Input('save-plot-btn', 'n_clicks'),
+    State('xrd-plot', 'figure'),
+    State('pie-plot', 'figure'),
+    State('correlation-plot','figure'),
+    # State('heating-plot','figure'),
+    State('saved-plots', 'data')
+    )
+    def save_plot(n_clicks, figure, saved_plots):
+        if n_clicks is None:
+            return saved_plots  # No clicks yet, so return existing saved plots
+        if saved_plots is None:
+            saved_plots = []  # Initialize if empty
+        saved_plots.append(figure)  # Add the new figure to saved plots
+        return saved_plots
