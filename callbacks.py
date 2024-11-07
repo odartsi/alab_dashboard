@@ -1,5 +1,5 @@
 import json
-from dash.dependencies import Input, Output, State
+from dash.dependencies import Input, Output, State 
 from data import fetch_data, fetch_data2
 from utils import calculate_ratios, calculate_experiment_similarity, element_composition_in_moles, get_samples_with_same_target, get_samples_with_same_powder, periodic_table_layout, element_categories
 import plotly.graph_objs as go
@@ -711,83 +711,303 @@ def register_callbacks(app):
     def natural_sort_key(name):
         return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', name)]
 
+
+    df = fetch_data()
+    sorted_names = sorted(df['name'].unique(), key=natural_sort_key)
     @app.callback(
     Output('tab-content', 'children'),
     Input('tabs', 'value'),
     State('saved-plots', 'data')
     )
+    
+
     def render_tab_content(tab, saved_plots):
-        df = fetch_data()
-        sorted_names = sorted(df['name'].unique(), key=natural_sort_key)
+        
+        
         if tab == 'main-tab':
-            # Original dashboard content
             return html.Div([
+                # Dropdown for sample selection
                 dcc.Dropdown(
                     id='sample-name-dropdown',
                     options=[{'label': name, 'value': name} for name in sorted_names],
-                    multi=True
+                    multi=True,
+                    style={'width': '100%', 'margin-bottom': '15px'}
                 ),
+                
+                # Row 1: Target and Similar Experiments
                 html.Div([
                     html.Div(id='target-box', style={'padding': '10px', 'margin': '10px', 'display': 'inline-block', 'width': '15%'}),
                     html.Div(id='similar-experiments-box', style={'padding': '10px', 'margin': '10px', 'display': 'inline-block', 'width': '45%'}),
                 ], style={'display': 'flex', 'justify-content': 'space-between'}),
+
+                # Row 2: Precursors and Pie plots side by side with save buttons
                 html.Div([
-                    dcc.Graph(id='precursors-plot', style={'padding': '10px', 'margin': '10px','width': '45%', 'display': 'inline-block' }),
-                    dcc.Graph(id='pie-plot', style={'padding': '10px', 'margin': '10px','width': '45%', 'display': 'inline-block'}),
-                ], style={'display': 'flex', 'flex-wrap': 'wrap','justify-content': 'space-between'}),
-                html.Button("Save pie plot", id="save-plot-btn"),
+                    html.Div([
+                        dcc.Graph(id='precursors-plot', style={'padding': '10px', 'margin': '10px', 'width': '100%'}),
+                        html.Button("Save Precursors Plot", id="save-precursors-plot-btn", style={'margin-top': '5px'}),
+                    ], style={'display': 'inline-block', 'width': '45%'}),
+
+                    html.Div([
+                        dcc.Graph(id='pie-plot', style={'padding': '10px', 'margin': '10px', 'width': '100%'}),
+                        html.Button("Save Pie Plot", id="save-pie-plot-btn", style={'margin-top': '5px'}),
+                    ], style={'display': 'inline-block', 'width': '45%'}),
+                ], style={'display': 'flex', 'justify-content': 'space-between', 'flex-wrap': 'wrap'}),
+
+                # Row 3: Temperature and Correlation plots side by side with save buttons
                 html.Div([
-                    dcc.Graph(id='temperature-plot', style={'padding': '10px', 'margin': '10px','width': '45%', 'display': 'inline-block'}),
-                    dcc.Dropdown(
-                        id='comparable-sample-dropdown',
-                        options=[{'label': name, 'value': name} for name in df['name'].unique()],
-                        placeholder="Select a comparable sample",
-                        style={'width': '5%', 'height': '5%', 'font-size': '14px'}
-                    ),
-                    dcc.Graph(id='correlation-plot', style={'padding': '10px', 'margin': '10px','width': '45%', 'display': 'inline-block'}),
-                ], style={'display': 'flex', 'flex-wrap': 'wrap','justify-content': 'space-between'}),
-                html.Button("Save correlation Plot", id="save-plot-btn"),
+                    html.Div([
+                        dcc.Graph(id='temperature-plot', style={'padding': '10px', 'margin': '10px', 'width': '100%'}),
+                        html.Button("Save Temperature Plot", id="save-temperature-plot-btn", style={'margin-top': '5px'}),
+                    ], style={'display': 'inline-block', 'width': '45%'}),
+
+                    html.Div([
+                        dcc.Dropdown(
+                            id='comparable-sample-dropdown',
+                            options=[{'label': name, 'value': name} for name in sorted_names],
+                            placeholder="Select a comparable sample",
+                            style={'width': '100%', 'font-size': '14px', 'margin': '10px'}
+                        ),
+                        dcc.Graph(id='correlation-plot', style={'padding': '10px', 'margin': '10px', 'width': '100%'}),
+                        html.Button("Save Correlation Plot", id="save-correlation-plot-btn", style={'margin-top': '5px'}),
+                    ], style={'display': 'inline-block', 'width': '45%'}),
+                ], style={'display': 'flex', 'justify-content': 'space-between', 'flex-wrap': 'wrap'}),
+
+                # Row 4: XRD plot with save button
                 html.H2("XRD characterization", style={'text-align': 'left'}),
                 html.Div([
                     html.Div([
-                        dcc.Graph(id='xrd-plot', style={'padding': '10px', 'margin': '10px', 'width': '100%'})
+                        dcc.Graph(id='xrd-plot', style={'padding': '10px', 'margin': '10px', 'width': '100%'}),
+                        html.Button("Save XRD Plot", id="save-xrd-plot-btn", style={'margin-top': '5px'}),
                     ], style={'width': '40%', 'display': 'inline-block'}),
                     html.Div([
                         html.Div(id='best_rwp_box', style={'padding': '10px', 'margin': '10px'}),
                         html.Div(id='results_box', style={'padding': '10px', 'margin': '10px'})
                     ], style={'display': 'flex', 'flex-direction': 'column', 'height': '80%', 'width': '80%'})
                 ], style={'display': 'flex'}),
-                html.Button("Save XRD Plot", id="save-plot-btn"),
+
+                # Row 5: SEM characterization images side by side
                 html.H2("SEM characterization", style={'text-align': 'left'}),
                 html.Div([
-                    html.Img(id='image1', style={'width': '35%', 'display': 'inline-block'}),
-                    html.Img(id='image2', style={'width': '35%', 'display': 'inline-block'}),
-                ], style={'display': 'flex', 'flex-wrap': 'wrap', 'justify-content': 'space-between'}),
-                
+                    html.Div([
+                        html.Img(id='image1', style={'width': '100%', 'display': 'inline-block'}),
+                    ], style={'width': '45%', 'display': 'inline-block', 'padding': '10px', 'margin': '10px'}),
+                    
+                    html.Div([
+                        html.Img(id='image2', style={'width': '100%', 'display': 'inline-block'}),
+                    ], style={'width': '45%', 'display': 'inline-block', 'padding': '10px', 'margin': '10px'}),
+                ], style={'display': 'flex', 'justify-content': 'space-between'}),
+
             ])
+        
         elif tab == 'saved-plots-tab':
-            # Display saved plots
             if not saved_plots:
                 return html.Div("No plots saved.")
+            # return html.Div([
+            #     # Button to download saved plots as PDF
+            #     html.Button("Download Saved Plots as PDF", id="download-pdf-btn", style={'margin-bottom': '10px'}),
+                
+            #     # Download component to trigger the download
+            #     dcc.Download(id="download-pdf"),
+
+            #     # Display each saved plot as a graph
+            #     *[dcc.Graph(figure=plot) for plot in saved_plots]
+            # ])
             
             return html.Div([
-                dcc.Graph(figure=plot) for plot in saved_plots  # Display each saved plot
+                dcc.Graph(figure=plot) for plot in saved_plots
             ])
+    # def render_tab_content(tab, saved_plots):
+    #     df = fetch_data()
+    #     sorted_names = sorted(df['name'].unique(), key=natural_sort_key)
+    #     if tab == 'main-tab':
+    #         # Original dashboard content
+    #         return html.Div([
+    #             dcc.Dropdown(
+    #                 id='sample-name-dropdown',
+    #                 options=[{'label': name, 'value': name} for name in sorted_names],
+    #                 multi=True
+    #             ),
+    #             html.Div([
+    #                 html.Div(id='target-box', style={'padding': '10px', 'margin': '10px', 'display': 'inline-block', 'width': '15%'}),
+    #                 html.Div(id='similar-experiments-box', style={'padding': '10px', 'margin': '10px', 'display': 'inline-block', 'width': '45%'}),
+    #             ], style={'display': 'flex', 'justify-content': 'space-between'}),
+    #             html.Div([
+    #                 dcc.Graph(id='precursors-plot', style={'padding': '10px', 'margin': '10px','width': '45%', 'display': 'inline-block' }),
+    #                 dcc.Graph(id='pie-plot', style={'padding': '10px', 'margin': '10px','width': '45%', 'display': 'inline-block'}),
+    #             ], style={'display': 'flex', 'flex-wrap': 'wrap','justify-content': 'space-between'}),
+    #             html.Div([
+    #                 dcc.Graph(id='temperature-plot', style={'padding': '10px', 'margin': '10px','width': '45%', 'display': 'inline-block'}),
+    #                 dcc.Dropdown(
+    #                     id='comparable-sample-dropdown',
+    #                     options=[{'label': name, 'value': name} for name in df['name'].unique()],
+    #                     placeholder="Select a comparable sample",
+    #                     style={'width': '5%', 'height': '5%', 'font-size': '14px'}
+    #                 ),
+    #                 dcc.Graph(id='correlation-plot', style={'padding': '10px', 'margin': '10px','width': '45%', 'display': 'inline-block'}),
+    #             ], style={'display': 'flex', 'flex-wrap': 'wrap','justify-content': 'space-between'}),
+    #             html.Button("Save correlation Plot", id="save-plot-btn"),
+    #             html.H2("XRD characterization", style={'text-align': 'left'}),
+    #             html.Div([
+    #                 html.Div([
+    #                     dcc.Graph(id='xrd-plot', style={'padding': '10px', 'margin': '10px', 'width': '100%'})
+    #                 ], style={'width': '40%', 'display': 'inline-block'}),
+    #                 html.Div([
+    #                     html.Div(id='best_rwp_box', style={'padding': '10px', 'margin': '10px'}),
+    #                     html.Div(id='results_box', style={'padding': '10px', 'margin': '10px'})
+    #                 ], style={'display': 'flex', 'flex-direction': 'column', 'height': '80%', 'width': '80%'})
+    #             ], style={'display': 'flex'}),
+    #             html.Button("Save XRD Plot", id="save-plot-btn"),
+    #             html.H2("SEM characterization", style={'text-align': 'left'}),
+    #             html.Div([
+    #                 html.Img(id='image1', style={'width': '35%', 'display': 'inline-block'}),
+    #                 html.Img(id='image2', style={'width': '35%', 'display': 'inline-block'}),
+    #             ], style={'display': 'flex', 'flex-wrap': 'wrap', 'justify-content': 'space-between'}),
+                
+    #         ])
+    #     elif tab == 'saved-plots-tab':
+    #         # Display saved plots
+    #         if not saved_plots:
+    #             return html.Div("No plots saved.")
+            
+    #         return html.Div([
+    #             dcc.Graph(figure=plot) for plot in saved_plots  # Display each saved plot
+    #         ])
 
+
+    # @app.callback(
+    # Output('saved-plots', 'data'),
+    # Input('save-plot-btn', 'n_clicks'),
+    # State('xrd-plot', 'figure'),
+    # # State('pie-plot', 'figure'),
+    # State('correlation-plot','figure'),
+    # # State('heating-plot','figure'),
+    # State('saved-plots', 'data')
+    # )
+    # def save_plot(n_clicks, figure, saved_plots):
+    #     if n_clicks is None:
+    #         return saved_plots  # No clicks yet, so return existing saved plots
+    #     if saved_plots is None:
+    #         saved_plots = []  # Initialize if empty
+    #     saved_plots.append(figure)  # Add the new figure to saved plots
+    #     return saved_plots
+
+
+    # Callback to render the tab content
+
+           
+
+    # Individual callbacks for saving each plot
+    @app.callback(
+        Output('saved-plots', 'data', allow_duplicate=True),
+        Input('save-precursors-plot-btn', 'n_clicks'),
+        State('precursors-plot', 'figure'),
+        State('saved-plots', 'data'),
+        prevent_initial_call=True
+    )
+    def save_precursors_plot(n_clicks, figure, saved_plots):
+        if n_clicks:
+            if saved_plots is None:
+                saved_plots = []
+            saved_plots.append(figure)
+        return saved_plots
+
+    
+    @app.callback(
+        Output('saved-plots', 'data', allow_duplicate=True),
+        Input('save-xrd-plot-btn', 'n_clicks'),
+        State('xrd-plot', 'figure'),
+        State('saved-plots', 'data'),
+        prevent_initial_call=True
+    )
+    def save_xrd_plot(n_clicks, figure, saved_plots):
+        if n_clicks:
+            if saved_plots is None:
+                saved_plots = []
+            saved_plots.append(figure)
+        return saved_plots
+    
+
+    # Callback for saving the pie plot
+    @app.callback(
+        Output('saved-plots', 'data', allow_duplicate=True),
+        Input('save-pie-plot-btn', 'n_clicks'),
+        State('pie-plot', 'figure'),
+        State('saved-plots', 'data'),
+        prevent_initial_call=True
+    )
+    def save_pie_plot(n_clicks, figure, saved_plots):
+        if n_clicks:
+            if saved_plots is None:
+                saved_plots = []
+            saved_plots.append(figure)
+        return saved_plots
+
+    # Callback for saving the correlation plot
+    @app.callback(
+        Output('saved-plots', 'data', allow_duplicate=True),
+        Input('save-correlation-plot-btn', 'n_clicks'),
+        State('correlation-plot', 'figure'),
+        State('saved-plots', 'data'),
+        prevent_initial_call=True
+    )
+    def save_correlation_plot(n_clicks, figure, saved_plots):
+        if n_clicks:
+            if saved_plots is None:
+                saved_plots = []
+            saved_plots.append(figure)
+        return saved_plots
+
+    # Callback for saving the temperature plot
+    @app.callback(
+        Output('saved-plots', 'data', allow_duplicate=True),
+        Input('save-temperature-plot-btn', 'n_clicks'),
+        State('temperature-plot', 'figure'),
+        State('saved-plots', 'data'),
+        prevent_initial_call=True
+    )
+    def save_temperature_plot(n_clicks, figure, saved_plots):
+        if n_clicks:
+            if saved_plots is None:
+                saved_plots = []
+            saved_plots.append(figure)
+        return saved_plots
+
+    import pdfkit
+    import tempfile
+    import plotly.io as pio
+   
 
     @app.callback(
-    Output('saved-plots', 'data'),
-    Input('save-plot-btn', 'n_clicks'),
-    State('xrd-plot', 'figure'),
-    State('pie-plot', 'figure'),
-    State('correlation-plot','figure'),
-    # State('heating-plot','figure'),
-    State('saved-plots', 'data')
+        Output("download-pdf", "data"),
+        Input("download-pdf-btn", "n_clicks"),
+        State("saved-plots", "data"),
+        prevent_initial_call=True
     )
-    def save_plot(n_clicks, figure, saved_plots):
-        if n_clicks is None:
-            return saved_plots  # No clicks yet, so return existing saved plots
-        if saved_plots is None:
-            saved_plots = []  # Initialize if empty
-        saved_plots.append(figure)  # Add the new figure to saved plots
-        return saved_plots
+    def download_pdf(n_clicks, saved_plots):
+        if not saved_plots:
+            return None
+
+        # HTML content initialization
+        html_content = "<html><head><style>body { font-family: Arial; }</style></head><body>"
+
+        # Save each Plotly figure as a temporary PNG file and add it to the HTML
+        image_paths = []
+        for i, plot in enumerate(saved_plots):
+            # Save each figure as a PNG file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_image:
+                pio.write_image(plot, tmp_image.name)
+                image_paths.append(tmp_image.name)
+                # Add image path to HTML content
+                html_content += f'<h3>Plot {i+1}</h3><img src="{tmp_image.name}" style="width:600px;"><br><br>'
+
+        html_content += "</body></html>"
+
+        # Save HTML content to a temporary file and convert it to PDF
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as tmp_html:
+            tmp_html.write(html_content.encode("utf-8"))
+            tmp_html.flush()
+            pdf_path = tempfile.mktemp(suffix=".pdf")
+            pdfkit.from_file(tmp_html.name, pdf_path)
+
+        # Serve the PDF file for download
+        return dcc.send_file(pdf_path)
