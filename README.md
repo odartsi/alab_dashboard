@@ -12,7 +12,7 @@ It brings together synthesis and characterization data in one place to help rese
 ## 📊 Dashboard Demo
 
 🎥 **Watch the video demo**:  
-[▶️ Dashboard Walkthrough](https://github.com/user-attachments/assets/fdf3d33a-c34c-4738-9f2b-3924d3544bac)
+https://github.com/user-attachments/assets/fdf3d33a-c34c-4738-9f2b-3924d3544bac
 
 ---
 
@@ -99,7 +99,4 @@ Then open your browser and go to:
 
 ---
 
-## 🧠 Credits
 
-Developed by Olympia Dartsi, PhD  
-[LinkedIn](https://www.linkedin.com/in/drolympiadartsi/) | [Email](mailto:olympiadartsi@gmail.com)
