@@ -102,4 +102,4 @@ Then open your browser and go to:
 ## 🧠 Credits
 
 Developed by Olympia Dartsi, PhD  
-[LinkedIn](https://www.linkedin.com/in/olympiadartsi) | [Email](mailto:olympiadartsi@gmail.com)
+[LinkedIn](https://www.linkedin.com/in/drolympiadartsi/) | [Email](mailto:olympiadartsi@gmail.com)
