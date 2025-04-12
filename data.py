@@ -2,28 +2,34 @@ import pandas as pd
 import os
 from pymongo import MongoClient
 import json
+from dotenv import load_dotenv
+load_dotenv()  # Loads .env from project root
 
 # Configure MongoDB client for Sauron
-db = MongoClient(host="mongodb07.nersc.gov", 
-                 username="alab_completed_ro",
-                 password="CEDERALAB_RO", 
-                 authSource="alab_completed")["alab_completed"]
+sauron_host = os.getenv("SAURON_DB_HOST")
+sauron_user = os.getenv("SAURON_DB_USER")
+sauron_pass = os.getenv("SAURON_DB_PASS")
+sauron_db_name = os.getenv("SAURON_DB_NAME")
+
+db = MongoClient(
+    host=sauron_host,
+    username=sauron_user,
+    password=sauron_pass,
+    authSource=sauron_db_name
+)[sauron_db_name]
 collection = db['samples']
 
 # MongoDB connection details for Dara
-host = "mongodb07.nersc.gov"
-username = "olympiadartsi"
-password = "ChVMtfb4mU5M"
-database_name = "alab-refinement"
-collection_name = "results"
+dara_host = os.getenv("DARA_DB_HOST")
+dara_user = os.getenv("DARA_DB_USER")
+dara_pass = os.getenv("DARA_DB_PASS")
+dara_db_name = os.getenv("DARA_DB_NAME")
+dara_collection_name = os.getenv("DARA_COLLECTION")
 
-# Form the connection string
-connection_string = f"mongodb://{username}:{password}@{host}/{database_name}"
-
-# Connect to MongoDB
+connection_string = f"mongodb://{dara_user}:{dara_pass}@{dara_host}/{dara_db_name}"
 client2 = MongoClient(connection_string)
-db2 = client2[database_name]
-collection2 = db2[collection_name]
+db2 = client2[dara_db_name]
+collection2 = db2[dara_collection_name]
 
 # Cache file paths
 CACHE_FILE = 'datasets/df_cache.csv'
